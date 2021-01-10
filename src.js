@@ -5,7 +5,7 @@ const fs = require('fs');
 const request = require('request');
 const emoji = require('node-emoji'); 
 
-const DJS11 = require('djs11');
+const DJS11 = require('discord.js');
 const client = new DJS11.Client();
 
 client.login(fs.readFileSync('./token.txt').toString());
@@ -14,6 +14,8 @@ client.on('ready', () => {
 	client.user.setPresence({
 		status: 'invisible'
 	});
+	
+	console.log('준비됐읍니다.');
 });
 
 if(typeof(Array.prototype.includes) !== 'function') {
@@ -88,8 +90,8 @@ client.on('messageDelete', msg => {
 	fs.appendFile('./msg.csv', 
 		'"'   + date().str + '",' +
 		'"\'' + date().unix + '",' +
-		'"\'' + msg.member.user.id + '",' + 
-		'"'   + msg.member.user.tag + '",' + 
+		'"\'' + msg.author.id + '",' + 
+		'"'   + msg.author.tag + '",' + 
 		'"'   + msg.guild.name + '",' +
 		'"'   + msg.channel.name + '",' +
 		'"\'' + msg.id + '",' + 
@@ -146,28 +148,43 @@ const statuses = {
 	invisible: '오프라인 표시'
 };
 
-client.on('presenceUpdate', (om, nm) => fs.appendFile('./msg.csv', 
-	'"'   + date().str + '",' +
-	'"\'' + date().unix + '",' +
-	'"\'' + om.user.id + '",' + 
-	'"'   + om.user.tag + '",' + 
-	'"'   + om.guild.name + '",' +
-	'"'   + '-' + '",' +
-	'"'   + '-' + '",' +
-	'"' + (
-		om.presence.status != nm.presence.status ? (
-			'현재 상태를 ' + statuses[om.presence.status] + '에서 ' + 
-			statuses[nm.presence.status] + '으로 변경'
-		) : (
-			nm.presence.status !== 'offline' && nm.presence.game ? (
-				'게임'
+function filterCustomStatus(activities) {
+	if(!activities) return '-';
+	
+	for(game of activities) {
+		if(!game) continue;
+		if(game.name == 'Custom Status') return game.state || '-';
+	}
+	
+	return '-';
+}
+
+client.on('presenceUpdate', (om, nm) => {
+	if(om.user.bot) return;
+	
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + om.user.id + '",' + 
+		'"'   + om.user.tag + '",' + 
+		'"'   + om.guild.name + '",' +
+		'"'   + '-' + '",' +
+		'"'   + '-' + '",' +
+		'"' + (
+			om.presence.status != nm.presence.status ? (
+				'현재 상태를 ' + statuses[om.presence.status] + '에서 ' + 
+				statuses[nm.presence.status] + '으로 변경'
 			) : (
-				'기타 상태 변경'
+				nm.presence.status !== 'offline' && (filterCustomStatus(om.presence.activities) != filterCustomStatus(nm.presence.activities)) ? (
+					'사용자 지정 상태: ' + filterCustomStatus(nm.presence.activities)
+				) : (
+					'게임 상태 변경'
+				)
 			)
-		)
-	) + '",' + 
-	'"'   + '상태' + '"\r\n'
-, x => 3));
+		) + '",' + 
+		'"'   + '상태' + '"\r\n'
+	, x => 3);
+});
 
 client.on('guildMemberAdd', member => fs.appendFile('./msg.csv', 
 	'"'   + date().str + '",' +
@@ -210,7 +227,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 			'"\'' + oldMember.user.id + '",' + 
 			'"'   + oldMember.user.tag + '",' + 
 			'"'   + oldMember.guild.name + '",' +
-			'"\'' + newch.name + '",' +
+			'"'   + newch.name + '",' +
 			'"'   + '-' + '",' +
 			'"' + newch.name + ' 통화실에 접속함.' + '",' + 
 			'"'   + '음성' + '"\r\n'
@@ -222,7 +239,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 			'"\'' + oldMember.user.id + '",' + 
 			'"'   + oldMember.user.tag + '",' + 
 			'"'   + oldMember.guild.name + '",' +
-			'"\'' + oldch.name + '",' +
+			'"'   + oldch.name + '",' +
 			'"'   + '-' + '",' +
 			'"' + oldch.name + ' 통화실을 나감.' + '",' + 
 			'"'   + '음성' + '"\r\n'
@@ -234,7 +251,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 			'"\'' + oldMember.user.id + '",' + 
 			'"'   + oldMember.user.tag + '",' + 
 			'"'   + oldMember.guild.name + '",' +
-			'"\'' + newch.name + '",' +
+			'"'   + newch.name + '",' +
 			'"'   + '-' + '",' +
 			'"'   + oldch.name + ' 통화실에서 ' + newch.name + ' 통화실로 이동함.' + '",' + 
 			'"'   + '음성' + '"\r\n'
@@ -247,7 +264,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 				'"\'' + oldMember.user.id + '",' + 
 				'"'   + oldMember.user.tag + '",' + 
 				'"'   + oldMember.guild.name + '",' +
-				'"\'' + newch.name + '",' +
+				'"'   + newch.name + '",' +
 				'"'   + '-' + '",' +
 				'"'   + (
 					newMember.serverDeaf ? '서버에 의해 헤드셋 꺼짐' : '서버에 의한 헤드셋 강제 음소거 해제'
@@ -261,7 +278,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 				'"\'' + oldMember.user.id + '",' + 
 				'"'   + oldMember.user.tag + '",' + 
 				'"'   + oldMember.guild.name + '",' +
-				'"\'' + newch.name + '",' +
+				'"'   + newch.name + '",' +
 				'"'   + '-' + '",' +
 				'"'   + (
 					newMember.serverMute ? '서버에 의해 마이크 꺼짐' : '서버에 의한 마이크 강제 음소거 해제'
@@ -275,7 +292,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 				'"\'' + oldMember.user.id + '",' + 
 				'"'   + oldMember.user.tag + '",' + 
 				'"'   + oldMember.guild.name + '",' +
-				'"\'' + newch.name + '",' +
+				'"'   + newch.name + '",' +
 				'"'   + '-' + '",' +
 				'"'   + (
 					newMember.selfDeaf ? '헤드셋 음소거' : '헤드셋 음소거 해제'
@@ -289,7 +306,7 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
 				'"\'' + oldMember.user.id + '",' + 
 				'"'   + oldMember.user.tag + '",' + 
 				'"'   + oldMember.guild.name + '",' +
-				'"\'' + newch.name + '",' +
+				'"'   + newch.name + '",' +
 				'"'   + '-' + '",' +
 				'"'   + (
 					newMember.selfMute ? '마이크 음소거' : '마이크 음소거 해제'
@@ -311,7 +328,6 @@ client.on('guildMemberUpdate', (oldMember, newMember) => {
 	}
 	
 	var msgstr = '';
-	
 	const Permissions = DJS11.Permissions;
 	var oldarr = [], newarr = [];
 	
@@ -362,7 +378,7 @@ client.on('guildMemberUpdate', (oldMember, newMember) => {
 	, x => 3);
 });
 
-client.on('messageUpdate', (o, msg) => {
+client.on('messageUpdate', (o, msg) => { try {
 	var msgcntnt = msg.content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/["]/g, '""');
 	
 	if(msg['embeds'].length && !msg.content) {
@@ -384,15 +400,15 @@ client.on('messageUpdate', (o, msg) => {
 	fs.appendFile('./msg.csv', 
 		'"'   + date().str + '",' +
 		'"\'' + date().unix + '",' +
-		'"\'' + msg.member.user.id + '",' + 
-		'"'   + msg.member.user.tag + '",' + 
+		'"\'' + msg.author.id + '",' + 
+		'"'   + msg.author.tag + '",' + 
 		'"'   + msg.guild.name + '",' +
 		'"'   + msg.channel.name + '",' +
 		'"\'' + msg.id + '",' + 
 		'"'   + msgcntnt + '",' + 
 		'"'   + '수정' + '"\r\n'
 	, x => 3);
-});
+}catch(e){}});
 
 client.on('messageReactionAdd', (reaction, user) => {
 	var emkey = reaction['_emoji']['name'];
@@ -436,13 +452,227 @@ client.on('messageReactionRemove', (reaction, user) => {
 	, x => 3);
 });
 
-client.on('message', msg => {
+client.on('channelCreate', channel => {
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + channel.guild.name + '",' +
+		'"'   + channel.name + '",' +
+		'"\'' + '-' + '",' +
+		'"'   + channel.name + ' 채널 생성' + '",' + 
+		'"'   + '채널' + '"\r\n'
+	, x => 3);
+});
+
+client.on('channelDelete', channel => {
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + channel.guild.name + '",' +
+		'"'   + channel.name + '",' +
+		'"\'' + '-' + '",' +
+		'"'   + channel.name + ' 채널 삭제' + '",' + 
+		'"'   + '채널' + '"\r\n'
+	, x => 3);
+});
+
+client.on('channelUpdate', (oldch, newch) => {
+	var chprop = '';
+	var props  = {
+		name: '이름',
+		topic: '주제',
+		position: '위치',		
+	};  // 권한은 귀찮음
+	
+	for(prop in props) {
+		if(oldch[prop] !== newch[prop]) {
+			chprop += '[' + props[prop] + ': ' + oldch[prop] + '에서 ' + newch[prop] + '로] ';
+		}
+	}
+	
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + (oldch || newch).guild.name + '",' +
+		'"'   + (oldch || newch).name + '",' +
+		'"\'' + '-' + '",' +
+		'"'   + oldch.name + ' 채널 업데이트 ' + (chprop || '(추가 정보 없음)') + '",' + 
+		'"'   + '채널' + '"\r\n'
+	, x => 3);
+});
+
+client.on('emojiCreate', emoji => {
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + emoji.guild.name + '",' +
+		'"'   + '-' + '",' +
+		'"\'' + emoji.id + '",' +
+		'"'   + emoji.name + ' 이모티콘 생성' + '",' + 
+		'"'   + '길드' + '"\r\n'
+	, x => 3);
+});
+
+client.on('emojiDelete', emoji => {
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + emoji.guild.name + '",' +
+		'"'   + '-' + '",' +
+		'"\'' + emoji.id + '",' +
+		'"'   + emoji.name + ' 이모티콘 생성' + '",' + 
+		'"'   + '길드' + '"\r\n'
+	, x => 3);
+});
+
+client.on('guildUpdate', (oldch, newch) => {
+	var chprop = '';
+	var props  = {
+		name: '이름',
+		icon: '아이콘 해시',
+	};
+	
+	for(prop in props) {
+		if(oldch[prop] !== newch[prop]) {
+			if(prop == 'icon') {
+				// 아이콘이 바뀌면 새로운 아이콘을 다운받는다
+				request.get(newch.iconURL)
+					.pipe(fs.createWriteStream('./디스코드 다운로드/프로필/' + newch.id + '-' + newch.icon + '-' + (new Date()).getTime() + '.png'));
+			}
+			chprop += '[' + props[prop] + ': ' + oldch[prop] + '에서 ' + newch[prop] + '로] ';
+		}
+	}
+	
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + (oldch || newch).name + '",' +
+		'"'   + '-' + '",' +
+		'"\'' + '-' + '",' +
+		'"'   + oldch.name + ' 길드 업데이트 ' + (chprop || '(추가 정보 없음)') + '",' + 
+		'"'   + '길드' + '"\r\n'
+	, x => 3);
+});
+
+client.on('roleCreate', role => {
+	var chprop = '';
+	var props  = {
+		name: '이름',
+		hexColor: '색',
+		hoist: '분리',
+		mentionable: '핑 가능 여부',
+	};
+	
+	for(prop in props) {
+		chprop += '[' + props[prop] + ': ' + role[prop] + '] ';
+	}
+	
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + role.guild.name + '",' +
+		'"'   + '-' + '",' +
+		'"\'' + role.id + '",' +
+		'"'   + role.name + ' 역할 생성 ' + chprop + '",' + 
+		'"'   + '길드' + '"\r\n'
+	, x => 3);
+});
+
+client.on('roleDelete', role => {
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + role.guild.name + '",' +
+		'"'   + '-' + '",' +
+		'"\'' + role.id + '",' +
+		'"'   + role.name + ' 역할 삭제' + '",' + 
+		'"'   + '길드' + '"\r\n'
+	, x => 3);
+});
+
+client.on('roleUpdate', (oldrl, newrl) => {
+	var chprop = '';
+	var props  = {
+		name: '이름',
+		hexColor: '색',
+		hoist: '분리',
+		mentionable: '핑 가능 여부',
+	};
+	
+	for(prop in props) {
+		if(oldrl[prop] !== newrl[prop]) {
+			chprop += '[' + props[prop] + ': ' + oldrl[prop] + '에서 ' + newrl[prop] + '로] ';
+		}
+	}
+	
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + '-' + '",' + 
+		'"'   + '-' + '",' + 
+		'"'   + newrl.guild.name + '",' +
+		'"'   + '-' + '",' +
+		'"\'' + newrl.id + '",' +
+		'"'   + newrl.name + ' 역할 수정 ' + (chprop || '(추가 정보 없음)') + '",' + 
+		'"'   + '길드' + '"\r\n'
+	, x => 3);
+});
+
+client.on('userUpdate', (oldus, newus) => {
+	var chprop = '';
+	var props  = {
+		username: '이름',
+		discriminator: '태그',
+		avatar: '아바타',
+	};
+	
+	for(prop in props) {
+		if(oldus[prop] !== newus[prop]) {
+			if(prop == 'avatar') {
+				// 프로필 사진이 바뀌면 새로운 아이콘을 다운받는다
+				request.get(newus.avatarURL)
+					.pipe(fs.createWriteStream('./디스코드 다운로드/프로필/' + newus.id + '-' + newus.avatar + '-' + (new Date()).getTime() + '.png'));
+			}
+			chprop += '[' + props[prop] + ': ' + oldus[prop] + '에서 ' + newus[prop] + '로] ';
+		}
+	}
+	
+	fs.appendFile('./msg.csv', 
+		'"'   + date().str + '",' +
+		'"\'' + date().unix + '",' +
+		'"\'' + newus.id + '",' + 
+		'"'   + newus.tag + '",' + 
+		'"'   + '-' + '",' +
+		'"'   + '-' + '",' +
+		'"\'' + '-' + '",' +
+		'"'   + newus.tag + ' 사용자 정보 수정 ' + (chprop || '(추가 정보 없음)') + '",' + 
+		'"'   + '사용자' + '"\r\n'
+	, x => 3);
+});
+
+client.on('message', msg => { try {
 	if(msg.guild.id == '707851339828297759') return;
 	
 	function download(url) {
 		request.get(url)
 			.on('response', r => print('완료!'))
-			.pipe(fs.createWriteStream('./' + String(Math.floor(Math.random() * 100000000)) + '_' + msg.attachments.first().filename.replace(/(?:[^A-Za-zㄱ-힣0-9. _-])/g, '')));
+			.pipe(fs.createWriteStream('./디스코드 다운로드/' + msg.id + '-' + String(Math.floor(Math.random() * 100000000)) + '_' + msg.attachments.first().filename.replace(/(?:[^A-Za-zㄱ-힣0-9. _-])/g, '')));
 	}
 	
 	print('>>> ' + msg.content.replace(/\n/g, ' '));
@@ -482,8 +712,8 @@ client.on('message', msg => {
 	fs.appendFile('./msg.csv', 
 		'"'   + tsp + '",' +
 		'"\'' + dt.unix + '",' +
-		'"\'' + msg.member.user.id + '",' + 
-		'"'   + msg.member.user.tag + '",' + 
+		'"\'' + msg.author.id + '",' + 
+		'"'   + msg.author.tag + '",' + 
 		'"'   + msg.guild.name + '",' +
 		'"'   + msg.channel.name + '",' +
 		'"\'' + msg.id + '",' + 
@@ -496,4 +726,4 @@ client.on('message', msg => {
 		write('<<< 첨부파일 ' + msg.attachments.size + '개 중 ' + ++num + '번째 다운로드 중... ');
 		download(attachment.url);
 	});
-});
+}catch(e){}});
